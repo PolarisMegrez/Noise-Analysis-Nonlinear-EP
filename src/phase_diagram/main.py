@@ -26,6 +26,7 @@ if __package__ is None or __package__ == "":
     from phase_diagram.plotting import (
         plot_phase_trajectories,
         plot_modulus_phase_trajectories,
+        plot_psd_modes,
     )
 else:
     from .io import (
@@ -40,6 +41,7 @@ else:
     from .plotting import (
         plot_phase_trajectories,
         plot_modulus_phase_trajectories,
+        plot_psd_modes,
     )
 
 
@@ -50,11 +52,13 @@ def run(
     var_index: int = 0,
     mod_i: int = 0,
     mod_j: int = 0,
-    base_out_dir: str = "runs",
+    base_out_dir: str = "../runs",
     t_points: Optional[int] = None,
     show: bool = False,
     *,
     ic_inline: Optional[Dict[str, Any]] = None,
+    noise: Optional[Dict[str, Any]] = None,
+    psd: Optional[Dict[str, Any]] = None,
 ):
     """
     Execute one full experiment run: load ICs/params, solve for all ICs, save data and figures.
@@ -84,13 +88,44 @@ def run(
     if not (system_py and func):
         raise ValueError("system_py and func must be provided")
     system_func = load_system_function(system_py, func)
+    # Attempt to auto-load noise diffusion_matrix from the same system module
+    auto_D_func = None
+    try:
+        from importlib.util import spec_from_file_location, module_from_spec
+        spec = spec_from_file_location("user_system_module_auto", system_py)
+        if spec is not None and spec.loader is not None:
+            mod = module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[attr-defined]
+            if hasattr(mod, "diffusion_matrix") and callable(getattr(mod, "diffusion_matrix")):
+                base_D = getattr(mod, "diffusion_matrix")
+                # Bind system params to diffusion if they share names
+                noise_params = {}
+                # Note: 'noise' is an argument to run(), may be None
+                if isinstance(noise, dict) and isinstance(noise.get("params"), dict):
+                    noise_params = dict(noise.get("params"))
+                def auto_D_func(ti, zc, **kw):
+                    merged = {}
+                    merged.update(params or {})
+                    merged.update(noise_params)
+                    merged.update(kw)
+                    return base_D(ti, zc, **merged)
+    except Exception:
+        auto_D_func = None
 
     # Solve
     if t_points is None:
         t_eval = None
     else:
         t_eval = np.linspace(t_span[0], t_span[1], int(t_points))
-    sols = solve_multiple_ics(system_func, ics, t_span, params=params, t_eval=t_eval)
+    sols = solve_multiple_ics(
+        system_func,
+        ics,
+        t_span,
+        params=params,
+        t_eval=t_eval,
+        noise=noise,
+        D_func_complex=auto_D_func,
+    )
 
     # Save raw solutions
     data_path = str(Path(run_dir) / "solutions.npz")
@@ -108,6 +143,8 @@ def run(
         "var_index": var_index,
         "mod_i": mod_i,
         "mod_j": mod_j,
+        "noise": noise or {"type": "none"},
+        "psd": psd or {"method": "welch", "params": {"nperseg": 256}},
     }
     save_metadata_json(str(Path(run_dir) / "metadata.json"), meta)
 
@@ -131,6 +168,27 @@ def run(
         save_path=str(figs_dir / "modulus_phase_trajectories.png"),
         show=show,
     )
+
+    # PSD of modes (|z_i|) averaged across ICs, both modes on one figure
+    try:
+        n_vars = sols[0].y.shape[0] // 2 if sols else 0
+        if n_vars > 0:
+            psd_labels = [f"|z_{k}|" for k in range(n_vars)]
+            # Determine PSD settings
+            psd_method = meta.get("psd", {}).get("method", "welch") if isinstance(meta.get("psd"), dict) else "welch"
+            psd_params = meta.get("psd", {}).get("params", {}) if isinstance(meta.get("psd"), dict) else {}
+            plot_psd_modes(
+                sols,
+                mode_indices=list(range(n_vars)),
+                labels=psd_labels,
+                title=f"PSD of mode amplitudes ({psd_method})",
+                method=psd_method,
+                params=psd_params,
+                save_path=str(figs_dir / "psd_modes.png"),
+                show=show,
+            )
+    except Exception as e:
+        print(f"[warn] PSD plotting skipped due to error: {e}")
 
     return run_dir
 
@@ -170,6 +228,23 @@ def run_from_config(config_path: str) -> str:
         t_points = int(t_points)
     show = bool(run_opts.get("show", cfg.get("show", False)))
 
+    # Noise options (optional)
+    noise_cfg = cfg.get("noise")
+    noise: Optional[Dict[str, Any]] = None
+    if noise_cfg:
+        noise = dict(noise_cfg)
+        # Resolve model.py path if present
+        model = noise.get("model")
+        if isinstance(model, dict):
+            n_py = model.get("py")
+            if n_py:
+                model["py"] = str((cfg_dir / n_py).resolve()) if not os.path.isabs(n_py) else n_py
+                noise["model"] = model
+        # If D is provided as nested lists, keep as-is; solver will convert/validate later
+
+    # PSD options (optional)
+    psd_cfg = cfg.get("psd")
+
     run_dir = run(
         ic_json=ic_json,
         system_py=sys_py,
@@ -181,7 +256,20 @@ def run_from_config(config_path: str) -> str:
         t_points=t_points,
         show=show,
         ic_inline=ic_block,
+        noise=noise,
+        psd=psd_cfg,
     )
+    # If PSD config exists, append to metadata for traceability
+    if psd_cfg:
+        try:
+            meta_path = Path(run_dir) / "metadata.json"
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta_json = json.load(f)
+            meta_json["psd"] = psd_cfg
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta_json, f, indent=2)
+        except Exception as e:
+            print(f"Warning: failed to record PSD config in metadata: {e}")
     # Copy the full configuration JSON used for this run
     try:
         dst = Path(run_dir) / Path(config_path).name

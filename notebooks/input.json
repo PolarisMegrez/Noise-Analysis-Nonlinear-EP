@@ -1,6 +1,6 @@
 {
   "system": {
-    "py": "../src/phase_diagram/systems/vanderpol.py",
+    "py": "../src/systems/vanderpol.py",
     "func": "vanderpol"
   },
   "ic": {

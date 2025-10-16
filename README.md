@@ -12,7 +12,7 @@ Authors: Yu Xue-Hao and Qiao Cong-Feng (University of Chinese Academy of Science
 	- `phase_diagram.dynamics`: solver utilities for complex ODEs (Solve IVPs; handle multiple ICs)
 	- `phase_diagram.plotting`: phase-plane and modulus–modulus trajectory plots (start/end markers included)
 	- `phase_diagram.io`: I/O helpers (read JSON inputs, create run folders, save results/metadata)
-	- `phase_diagram.systems.vanderpol`: example two-mode system (α, β) used in our experiments
+		- `systems.vanderpol`: example two-mode system (α, β) used in our experiments
 
 ## System model used in examples
 
@@ -22,7 +22,7 @@ The example two-mode complex ODE (state z = [α, β]):
 
 	dβ/dt = [ -i·ω_b − (γ_b/2) ]·β − i·g·α
 
-Defined in `src/phase_diagram/systems/vanderpol.py` as function `vanderpol(t, z, **params)`.
+Defined in `src/systems/vanderpol.py` as function `vanderpol(t, z, **params)`.
 
 ## Installation
 
@@ -40,12 +40,12 @@ python -m pip install -e .
 
 ## Configuration (single input “port”)
 
-Edit `notebooks/input.json` to control the system, initial conditions, and run options. Example:
+Edit `notebooks/alpha_beta_example.json` to control the system, initial conditions, and run options. Example:
 
 ```
 {
 	"system": {
-		"py": "../src/phase_diagram/systems/vanderpol.py",
+		"py": "../src/systems/vanderpol.py",
 		"func": "vanderpol"
 	},
 	"ic": {
@@ -81,6 +81,26 @@ Notes:
 - A system function must have signature `f(t: float, z: np.ndarray[complex], **params) -> np.ndarray[complex]` and return the complex derivative vector dz/dt.
 - ICs can be provided inline (as above) or via an external JSON (use `ic_json`/`ic_file` keys instead of `ic`).
 
+### Noise configuration (optional)
+
+Stochastic differential equations (c-number Langevin) are supported via Euler–Maruyama with Gaussian white noise. Add a `noise` block to the config:
+
+```
+"noise": {
+	"type": "gaussian-white",      # or "none"
+	"D": [[1e-4, 0, 0, 0],          # diffusion matrix in real-expanded space (2n x 2n)
+				[0, 1e-4, 0, 0],
+				[0, 0, 1e-4, 0],
+				[0, 0, 0, 1e-4]],
+	"seed": 12345                    # optional RNG seed for reproducibility
+}
+```
+
+Notes:
+- For n complex variables, the real-expanded dimension is 2n; `D` must be (2n x 2n).
+- Currently implemented: `type = none` (no noise) or `gaussian-white`.
+- Future noise models can be added without breaking the interface.
+
 ## How to run (Windows PowerShell)
 
 From repository root:
@@ -88,15 +108,15 @@ From repository root:
 Option A — Run as a script (no install):
 ```
 $env:PYTHONPATH = "$PWD\src"
-python .\src\phase_diagram\main.py --config .\notebooks\input.json
+python .\src\phase_diagram\main.py --config .\notebooks\alpha_beta_example.json
 ```
 
 Option B — Run as a module (after editable install):
 ```
-python -m phase_diagram.main --config .\notebooks\input.json
+python -m phase_diagram.main --config .\notebooks\alpha_beta_example.json
 ```
 
-Each run saves to `runs/run-YYYYmmdd-HHMMSS/`:
+Each run saves to `runs/run-YYYYmmdd-HHMMSS/` (by default placed at the parent of the workspace, i.e., `../runs`):
 - input.json (copied)
 - metadata.json (paths, parameters, time grid, etc.)
 - solutions.npz (arrays `t_i`, `y_i` per IC)
@@ -131,12 +151,12 @@ src/phase_diagram/
 	io.py           # JSON I/O, run-folder creation, saving artifacts
 	main.py         # CLI entrypoint and run() orchestration
 	plotting.py     # plotting utilities (phase + modulus)
-	systems/
-		vanderpol.py  # example two-mode (α, β) system used in the paper
+src/systems/
+	vanderpol.py    # example two-mode (α, β) system used in the paper
 notebooks/
-	input.json      # example config
-	Phase_Diagram.ipynb  # demo notebook
-runs/             # per-run outputs generated automatically
+	alpha_beta_example.json  # example config
+	Phase_Diagram.ipynb      # demo notebook
+runs/ (or ../runs)       # per-run outputs generated automatically
 ```
 
 ## Troubleshooting

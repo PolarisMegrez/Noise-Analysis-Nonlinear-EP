@@ -1,18 +1,53 @@
 {
-  "count": 3,
-  "n_vars": 2,
-  "t_span": [0.0, 80.0],
-  "initial_conditions": [
-    [[0.8, 0.0], [0.0, 0.0]],
-    [[0.5, 0.5], [0.2, -0.2]],
-    [[-0.2, 0.1], [0.6, 0.0]]
-  ],
-  "params": {
-    "omega_a": 1.0,
-    "omega_b": 1.2,
-    "gamma_a": 0.04,
-    "Gamma": 0.1,
-    "gamma_b": 0.1,
-    "g": 0.4
+  "system": {
+    "py": "../src/models/vanderpol.py",
+    "func": "ODEs"
+  },
+  "ic": {
+    "count": 3,
+    "n_vars": 2,
+    "t_span": [0.0, 100.0],
+    "initial_conditions": [
+      [[0.8, 0.0], [0.0, 0.0]],
+      [[0.5, 0.5], [0.2, -0.2]],
+      [[-0.2, 0.1], [0.6, 0.0]]
+    ],
+    "params": {
+      "omega_a": 1.0,
+      "omega_b": 1.2,
+      "gamma_a": 0.04,
+      "Gamma": 0.1,
+      "gamma_b": 0.1,
+      "g": 0.4
+    }
+  },
+  "run": {
+    "var_index": 0,
+    "mod_i": 0,
+    "mod_j": 1,
+    "t_points": 2000,
+    "out": "../runs",
+    "show": false
+  },
+  "noise": {
+    "type": "gaussian-white",
+    "params": {
+      "D_scale": 1e-4,
+      "amp_smoothing": 0.05
+    },
+    "expectation": {
+      "type": "time-window",
+      "params": { "var_index": 0, "tau": 2.0 }
+    },
+    "seed": 42
+  },
+  "psd": {
+    "method": "welch",
+    "params": {
+      "nperseg": 512,
+      "window": "hann",
+      "noverlap": 128,
+      "detrend": "constant"
+    }
   }
 }
