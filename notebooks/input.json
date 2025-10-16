@@ -1,0 +1,32 @@
+{
+  "system": {
+    "py": "../src/phase_diagram/systems/vanderpol.py",
+    "func": "vanderpol"
+  },
+  "ic": {
+    "count": 3,
+    "n_vars": 2,
+    "t_span": [0.0, 100.0],
+    "initial_conditions": [
+      [[0.8, 0.0], [0.0, 0.0]],
+      [[0.5, 0.5], [0.2, -0.2]],
+      [[-0.2, 0.1], [0.6, 0.0]]
+    ],
+    "params": {
+      "omega_a": 1.0,
+      "omega_b": 1.2,
+      "gamma_a": 0.04,
+      "gamma_b": 0.1,
+      "Gamma": 0.1,
+      "g": 0.4
+    }
+  },
+  "run": {
+    "var_index": 0,
+    "mod_i": 0,
+    "mod_j": 1,
+    "t_points": 2000,
+    "out": "../runs",
+    "show": false
+  }
+}

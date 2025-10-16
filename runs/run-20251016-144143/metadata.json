@@ -1,0 +1,22 @@
+{
+  "ic_json": "D:\\Desk\\Nonlinear-EP\\phase-diagram-app\\notebooks\\vdp_ic.json",
+  "system_py": "D:\\Desk\\Nonlinear-EP\\phase-diagram-app\\src\\phase_diagram\\systems\\vanderpol.py",
+  "func": "vanderpol",
+  "t_span": [
+    0.0,
+    80.0
+  ],
+  "t_points": 400,
+  "num_ics": 3,
+  "params": {
+    "omega_a": 1.0,
+    "omega_b": 1.2,
+    "gamma_a": 0.04,
+    "Gamma": 0.1,
+    "gamma_b": 0.1,
+    "g": 0.4
+  },
+  "var_index": 0,
+  "mod_i": 0,
+  "mod_j": 0
+}

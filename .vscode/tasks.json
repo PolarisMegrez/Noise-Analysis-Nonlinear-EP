@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "quick-run-validation",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$ErrorActionPreference = 'Stop'; $env:PYTHONPATH = \"$PWD\\src\"; python .\\src\\phase_diagram\\main.py --ic_json .\\notebooks\\vdp_ic.json --system_py .\\src\\phase_diagram\\systems\\vanderpol.py --func vanderpol --t_points 200 --out .\\runs --show"
+			]
+		}
+	]
+}
