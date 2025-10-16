@@ -1,0 +1,55 @@
+{
+  "system": {
+    "py": "../src/models/vanderpol.py",
+    "t_span": [0.0, 100.0],
+    "t_points": 3000,
+    "out": "../runs",
+    "params": {
+      "omega_a": 1.0005,
+      "omega_b": 1.0,
+      "gamma_a": 2,
+      "Gamma": 0.01,
+      "gamma_b": 1,
+      "g": 0.5
+    }
+  },
+  "ic": {
+    "count": 1,
+    "n_vars": 2,
+    "initial_conditions": [
+      [[7.0, 0.0], [0.0, -7.0]]
+    ]
+  },
+  "plotting": {
+    "var_index": 0,
+    "mod_i": 0,
+    "mod_j": 1,
+    "acquire_interval": [80.0, 100.0],
+    "psd_signal": "amplitude",
+    "show": false,
+    "multi_traj_plot": "average"
+  },
+  "noise": {
+    "type": "gaussian-white",
+    "params": {
+        "D_scale": 1
+    },
+    "expectation": {
+        "type": "multi-trajectory",
+        "params": { "var_index": 0 }
+    },
+    "seed": 7,
+    "solver": {
+    "adaptive": false,
+    "rtol": 1e-3,
+    "atol": 1e-4
+    }
+  },
+  "psd": {
+    "method": "multi-trajectory",
+    "params": {
+    "replicates": 500,
+    "window": "boxcar"
+        }
+    }
+}

@@ -9,13 +9,16 @@ import numpy as np
 
 
 def read_initial_conditions_json(path: str):
-    """Read an IC JSON file and return (list of complex IC arrays, (t0, t1), params dict)."""
+    """Read an IC JSON file and return (list of complex IC arrays, (t0, t1), params dict).
+    Supports older schema where t_span/params live in the same file; for new unified config, run_from_config supplies t_span/params via system.
+    """
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     count = int(data["count"])
     n_vars = int(data["n_vars"])
-    t_span = tuple(map(float, data["t_span"]))
+    # Prefer local t_span for standalone IC files; run_from_config overrides with system.t_span
+    t_span = tuple(map(float, data.get("t_span", [0.0, 1.0])))
     ic_raw = data["initial_conditions"]
     if len(ic_raw) != count:
         raise ValueError(f"count={count} but got {len(ic_raw)} initial condition sets")
@@ -37,7 +40,7 @@ def parse_ic_block(ic_block: Dict[str, Any]) -> Tuple[List[np.ndarray], Tuple[fl
     """Parse an inline IC block and return (IC list, (t0, t1), params dict)."""
     count = int(ic_block["count"])
     n_vars = int(ic_block["n_vars"])
-    t_span = tuple(map(float, ic_block["t_span"]))
+    t_span = tuple(map(float, ic_block.get("t_span", [0.0, 1.0])))
     ic_raw = ic_block["initial_conditions"]
     if len(ic_raw) != count:
         raise ValueError(f"count={count} but got {len(ic_raw)} initial condition sets")

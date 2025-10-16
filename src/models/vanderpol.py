@@ -30,7 +30,6 @@ def diffusion_matrix(
     gamma_a: float = 0.05,
     Gamma: float = 0.0,
     gamma_b: float = 0.1,
-    amp_smoothing: float = 0.05,
     **kwargs,
 ) -> np.ndarray:
     if "D" in kwargs and kwargs["D"] is not None:
@@ -43,11 +42,34 @@ def diffusion_matrix(
     n = z.size
     assert n == 2, "vanderpol diffusion assumes two-mode system (alpha, beta)"
 
-    abs_a2 = (alpha.real**2 + alpha.imag**2)
-    abs_a2_mean = (1.0 - amp_smoothing) * abs_a2 + amp_smoothing * 0.5
+    # expectation source: prefer injected alpha_amp2_mean; fallback to instantaneous |alpha|^2
+    # compute |alpha|^2 robustly
+    ar = float(alpha.real)
+    ai = float(alpha.imag)
+    am = max(abs(ar), abs(ai))
+    if am == 0.0:
+        abs_a2_inst = 0.0
+    else:
+        xr = ar / am
+        xi = ai / am
+        abs_a2_inst = (xr * xr + xi * xi) * (am * am)
+        if not np.isfinite(abs_a2_inst):
+            abs_a2_inst = 1e300
+    abs_a2_mean = float(kwargs.get("alpha_amp2_mean", abs_a2_inst))
+    # Clip expectation to keep diffusion finite
+    abs_a2_mean = float(np.clip(abs_a2_mean, 0.0, 1e12))
 
+    # Sanitize D_scale and compute diagonal diffusion terms
+    try:
+        D_scale = float(D_scale)
+    except Exception:
+        D_scale = 1.0
+    D_scale = float(np.clip(D_scale, 0.0, 1e6))
     D_alpha = D_scale * max(0.0, (gamma_a / 2.0) + Gamma * (2.0 * abs_a2_mean - 1.0))
     D_beta = D_scale * max(0.0, (gamma_b / 2.0))
+    # Clip to finite bounds
+    D_alpha = float(np.clip(D_alpha, 0.0, 1e12))
+    D_beta = float(np.clip(D_beta, 0.0, 1e12))
 
     Dr = np.zeros((2 * n, 2 * n), dtype=float)
     Dr[0, 0] = D_alpha

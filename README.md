@@ -1,32 +1,29 @@
 # Noise Analysis for Nonlinear Exceptional Point Sensing — Supplementary Code
 
-This repository contains supplementary code accompanying a research paper under preparation on nonlinear exceptional-point (EP) sensing and noise analysis. The codebase provides a reproducible pipeline to simulate user-defined complex ODE systems, sweep multiple initial conditions, and generate phase-space visualizations and data artifacts per run.
+Supplementary code for nonlinear exceptional-point (EP) sensing and noise analysis. It provides a reproducible, config-driven pipeline to simulate user-defined complex ODE/SDE systems, run multiple initial conditions and/or stochastic replicates, and generate phase plots and PSDs per run.
 
 Authors: Yu Xue-Hao and Qiao Cong-Feng (University of Chinese Academy of Sciences, UCAS)
 
-## Overview
+## What it does (current)
 
-- Language: Python (tested on Python 3.12, Windows; should work on recent Python 3.x on macOS/Linux).
-- Purpose: numerically integrate first-order ODE systems defined in complex form, over multiple initial conditions, and save results and plots for noise/EP-sensing analysis workflows.
-- Key modules:
-	- `phase_diagram.dynamics`: solver utilities for complex ODEs (Solve IVPs; handle multiple ICs)
-	- `phase_diagram.plotting`: phase-plane and modulus–modulus trajectory plots (start/end markers included)
-	- `phase_diagram.io`: I/O helpers (read JSON inputs, create run folders, save results/metadata)
-		- `systems.vanderpol`: example two-mode system (α, β) used in our experiments
+- Config-driven runs (single JSON) with:
+  - System: model file, parameters, time span, sampling density
+  - ICs: multiple initial conditions (inline or external JSON)
+  - Plotting: acquisition window、phase plots、PSD
+  - Noise: Gaussian white noise via Euler–Maruyama (deterministic when disabled)
+- PSD for each mode with two choices of analyzed signal:
+  - amplitude: on |z(t)| (默认)
+  - intensity: on complex z(t) (two-sided |Z(f)|^2)
+- PSD options: method (Welch or multi-trajectory averaging), axis scale (linear/semilogy/semilogx/loglog), frequency range [fmin,fmax]
+- Acquisition interval post-slicing: simulate once over t_span, then slice [t0,t1] for plotting/PSD
+- Replot from saved results: no re-simulation; can override acquisition window and plotting options
+- Progress with ETA per IC; metadata + raw arrays saved for reproducibility
 
-## System model used in examples
+See docs for details:
+- Configuration: `docs/config_guide.md`
+- PSD concepts/options: `docs/psd_guide.md`
 
-The example two-mode complex ODE (state z = [α, β]):
-
-	dα/dt = [ -i·ω_a + (γ_a/2) + Γ·(1/2 − |α|^2) ]·α − i·g·β
-
-	dβ/dt = [ -i·ω_b − (γ_b/2) ]·β − i·g·α
-
-Defined in `src/systems/vanderpol.py` as function `vanderpol(t, z, **params)`.
-
-## Installation
-
-Install dependencies:
+## Install
 
 ```
 pip install -r requirements.txt
@@ -38,129 +35,65 @@ Optional editable install (enables `python -m phase_diagram.main`):
 python -m pip install -e .
 ```
 
-## Configuration (single input “port”)
-
-Edit `notebooks/alpha_beta_example.json` to control the system, initial conditions, and run options. Example:
-
-```
-{
-	"system": {
-		"py": "../src/systems/vanderpol.py",
-		"func": "vanderpol"
-	},
-	"ic": {
-		"count": 3,
-		"n_vars": 2,
-		"t_span": [0.0, 100.0],
-		"initial_conditions": [
-			[[0.8, 0.0], [0.0, 0.0]],
-			[[0.5, 0.5], [0.2, -0.2]],
-			[[-0.2, 0.1], [0.6, 0.0]]
-		],
-		"params": {
-			"omega_a": 1.0,
-			"omega_b": 1.2,
-			"gamma_a": 0.04,
-			"Gamma": 0.1,
-			"gamma_b": 0.1,
-			"g": 0.4
-		}
-	},
-	"run": {
-		"var_index": 0,
-		"mod_i": 0,
-		"mod_j": 1,
-		"t_points": 2000,
-		"out": "../runs",
-		"show": false
-	}
-}
-```
-
-Notes:
-- A system function must have signature `f(t: float, z: np.ndarray[complex], **params) -> np.ndarray[complex]` and return the complex derivative vector dz/dt.
-- ICs can be provided inline (as above) or via an external JSON (use `ic_json`/`ic_file` keys instead of `ic`).
-
-### Noise configuration (optional)
-
-Stochastic differential equations (c-number Langevin) are supported via Euler–Maruyama with Gaussian white noise. Add a `noise` block to the config:
-
-```
-"noise": {
-	"type": "gaussian-white",      # or "none"
-	"D": [[1e-4, 0, 0, 0],          # diffusion matrix in real-expanded space (2n x 2n)
-				[0, 1e-4, 0, 0],
-				[0, 0, 1e-4, 0],
-				[0, 0, 0, 1e-4]],
-	"seed": 12345                    # optional RNG seed for reproducibility
-}
-```
-
-Notes:
-- For n complex variables, the real-expanded dimension is 2n; `D` must be (2n x 2n).
-- Currently implemented: `type = none` (no noise) or `gaussian-white`.
-- Future noise models can be added without breaking the interface.
-
-## How to run (Windows PowerShell)
+## Run (Windows PowerShell)
 
 From repository root:
 
-Option A — Run as a script (no install):
+- As a script (no install):
 ```
 $env:PYTHONPATH = "$PWD\src"
-python .\src\phase_diagram\main.py --config .\notebooks\alpha_beta_example.json
+python .\src\phase_diagram\main.py --config .\notebooks\input.json
 ```
 
-Option B — Run as a module (after editable install):
+- As a module (after editable install):
 ```
-python -m phase_diagram.main --config .\notebooks\alpha_beta_example.json
-```
-
-Each run saves to `runs/run-YYYYmmdd-HHMMSS/` (by default placed at the parent of the workspace, i.e., `../runs`):
-- input.json (copied)
-- metadata.json (paths, parameters, time grid, etc.)
-- solutions.npz (arrays `t_i`, `y_i` per IC)
-- figs/phase_trajectories.png (complex plane for selected variable)
-- figs/modulus_phase_trajectories.png (|z_i| vs |z_j|)
-
-Plot markers:
-- Start of each trajectory: hollow triangle (same color as line)
-- End of each trajectory: hollow cross (same color as line)
-
-## Define your own system
-
-Create a Python file exporting a function:
-
-```
-def my_system(t: float, z: np.ndarray, **params) -> np.ndarray:
-		# z is a complex vector; return dz/dt as a complex vector of same shape
-		...
+python -m phase_diagram.main --config .\notebooks\input.json
 ```
 
-Point the config to that file via `system.py` and `system.func`.
+Each run saves to `runs/run-YYYYmmdd-HHMMSS/` (default base is `../runs`); key artifacts:
+- `metadata.json` (paths, parameters, plotting/PSD options)
+- `solutions.npz` (saved time grids and states)
+- `figs/phase_trajectories.png`, `figs/modulus_phase_trajectories.png`, `figs/psd_modes_ic*.png`
 
-## Reproducibility
+Replot from saved results (no simulation):
+```
+python -m phase_diagram.main --replot .\runs\run-YYYYmmdd-HHMMSS --acquire_interval "20,120"
+```
 
-The runner copies the used configuration JSON (and IC JSON if provided) into each run folder and saves both metadata and raw solution arrays to enable full offline reproduction.
+The demo notebook `notebooks/Phase_Diagram.ipynb` includes a ready-to-use cell to replot from a run directory, with interactive inputs (acquire interval, PSD signal/axes/range).
 
-## Project structure
+## Configure briefly
+
+Top-level keys in the JSON config:
+- `system`: `{ py, t_span, t_points, out, params }`
+- `ic` or `ic_json`: initial conditions (inline or external file)
+- `plotting`: `{ var_index, mod_i, mod_j, acquire_interval, plot_phase, plot_psd, psd_signal, psd_axis_scale, psd_freq_range, show }`
+- `noise`: optional Gaussian-white noise (`type`, `D` or model, `solver`)
+- `psd`: `{ method: "welch" | "multi-trajectory", params: {...} }`
+
+Refer to `docs/config_guide.md` for field definitions, validation rules (e.g., acquire_interval clamping), and examples.
+
+## Project layout
 
 ```
 src/phase_diagram/
-	dynamics.py     # complex ODE solvers and helpers
-	io.py           # JSON I/O, run-folder creation, saving artifacts
-	main.py         # CLI entrypoint and run() orchestration
-	plotting.py     # plotting utilities (phase + modulus)
-src/systems/
-	vanderpol.py    # example two-mode (α, β) system used in the paper
+  dynamics.py   # ODE/SDE solvers and helpers
+  io.py         # JSON I/O, run-folder creation, save/load artifacts
+  main.py       # CLI entry and orchestration (run/replot)
+  plotting.py   # phase/PSD plotting and PSD computation
+src/models/
+  vanderpol.py  # example two-mode model used by sample configs
+docs/
+  config_guide.md  # configuration guide
+  psd_guide.md     # PSD guide
 notebooks/
-	alpha_beta_example.json  # example config
-	Phase_Diagram.ipynb      # demo notebook
-runs/ (or ../runs)       # per-run outputs generated automatically
+  input.json, vdp_welch.json, vdp_multi_traj.json  # example configs
+  Phase_Diagram.ipynb  # demo + replot cell
+runs/ (or ../runs)  # per-run outputs (created automatically)
 ```
 
-## Troubleshooting
+## Notes on provenance and license
 
-- Module not found (phase_diagram): ensure `$env:PYTHONPATH = "$PWD\src"` or install with `pip install -e .`.
-- PowerShell quoting: prefer double-quotes for `-Command` strings and single-quotes inside them to avoid escaping issues.
-- Empty figures or no outputs: confirm `input.json` paths are correct relative to the file’s location.
+This project was authored by the team with assistance from GitHub Copilot (AI pair programming).
+
+License: MIT. See the `LICENSE` file at the repository root.
